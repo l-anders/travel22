@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 여행 계획</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        .page { display: none; } /* 모든 페이지 초기엔 숨김 */
+        .page.active { display: block; } /* 활성 페이지는 보임 */
+        /* #mainImage { cursor: pointer; max-width: 80%; height: auto; } 이 부분은 필요 없어져요 */
+        #startButton { padding: 15px 30px; font-size: 1.2em; cursor: pointer; margin-top: 50px; } /* 버튼 스타일 추가 */
+        #seoulMap { cursor: pointer; max-width: 90%; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #chatBotContainer { text-align: left; max-width: 600px; margin: 20px auto; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        .chat-message { margin-bottom: 10px; }
+        .user-message { text-align: right; color: blue; }
+        .bot-message { text-align: left; color: green; }
+        #chatInput { width: calc(100% - 80px); padding: 8px; margin-right: 5px; }
+        #chatSendButton { padding: 8px 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="page1" class="page active">
+        <h2>여행 계획을 시작하시겠습니까?</h2>
+        <button id="startButton">여행 시작하기</button>
+    </div>
+
+    <div id="page2" class="page">
+        <h2>어디로 여행 가고 싶으신가요?</h2>
+        <div id="map">
+            <div id="seoulMap" style="border: 1px solid #ccc; padding: 100px; margin: 20px auto; width: 80%; background-color: #f9f9f9;">
+                <p>서울 지도가 들어갈 곳입니다 (클릭하세요)</p>
+            </div>
+            <p>지도를 클릭하여 장소를 선택하세요.</p>
+        </div>
+    </div>
+
+    <div id="page3" class="page">
+        <h2>언제부터 언제까지 여행할 건가요?</h2>
+        <div>
+            <label for="startMonth">시작:</label>
+            <select id="startMonth"></select> 월
+            <select id="startDay"></select> 일
+        </div>
+        <div>
+            <label for="endMonth">종료:</label>
+            <select id="endMonth"></select> 월
+            <select id="endDay"></select> 일
+        </div>
+        <button onclick="goToPage4()">날짜 선택 완료</button>
+    </div>
+
+    <div id="page4" class="page">
+        <h2>누구와 함께 여행하나요?</h2>
+        <button onclick="selectCompanion('친구')">친구</button>
+        <button onclick="selectCompanion('가족')">가족</button>
+        <button onclick="selectCompanion('직장동료')">직장동료</button>
+        <button onclick="selectCompanion('기타')">기타</button>
+
+        <h2 style="margin-top: 30px;">본인 포함 몇 명이서 여행하나요?</h2>
+        <input type="number" id="peopleCount" min="1" value="1"> 명
+        <button onclick="goToPage5()">선택 완료</button>
+    </div>
+
+    <div id="page5" class="page">
+        <h2>여행 계획을 어떻게 도와드릴까요?</h2>
+        <button onclick="showPdfOption()">다 짜주길 원해요</button>
+        <button onclick="startChatbot()">같이 짤래요</button>
+    </div>
+
+    <div id="page6_pdf" class="page">
+        <h2>여행 계획 PDF</h2>
+        <p>선택하신 내용으로 여행 계획 PDF를 생성하시겠습니까?</p>
+        <button onclick="savePdf()">PDF 저장하기</button>
+    </div>
+
+    <div id="page6_chat" class="page">
+        <h2>여행 계획 챗봇</h2>
+        <div id="chatBotContainer">
+            <div id="chatDisplay"></div>
+            <input type="text" id="chatInput" placeholder="메시지를 입력하세요...">
+            <button id="chatSendButton">보내기</button>
+        </div>
+    </div>
+
+    <script>
+        let location = '';
+        let date1 = {};
+        let date2 = {};
+        let companion = '';
+        let people = 0;
+        let chatStep = 0; // 챗봇 대화 단계
+
+        // 페이지 전환 함수
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        // 1. 시작 버튼 클릭 -> 지도 페이지
+        document.getElementById('startButton').addEventListener('click', function() {
+            showPage('page2');
+            initializeMap(); // 지도 초기화 (여기서는 서울 지도 이미지 클릭 이벤트)
+        });
+
+        // 2. 지도 초기화 (이미지 대신 div 클릭으로 대체)
+        function initializeMap() {
+            document.getElementById('seoulMap').addEventListener('click', function() {
+                location = '서울';
+                alert('선택된 장소: ' + location);
+                showPage('page3'); // 날짜 선택 페이지로 이동
+                populateDateDropdowns(); // 날짜 드롭다운 채우기
+            });
+        }
+
+        // (이하 JavaScript 코드는 기존과 동일)
+        function populateDateDropdowns() {
+            const startMonthSelect = document.getElementById('startMonth');
+            const startDaySelect = document.getElementById('startDay');
+            const endMonthSelect = document.getElementById('endMonth');
+            const endDaySelect = document.getElementById('endDay');
+
+            startMonthSelect.innerHTML = '';
+            startDaySelect.innerHTML = '';
+            endMonthSelect.innerHTML = '';
+            endDaySelect.innerHTML = '';
+
+            for (let i = 1; i <= 12; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                startMonthSelect.appendChild(option.cloneNode(true));
+                endMonthSelect.appendChild(option.cloneNode(true));
+            }
+
+            for (let i = 1; i <= 31; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                startDaySelect.appendChild(option.cloneNode(true));
+                endDaySelect.appendChild(option.cloneNode(true));
+            }
+        }
+
+        function goToPage4() {
+            const startMonth = document.getElementById('startMonth').value;
+            const startDay = document.getElementById('startDay').value;
+            const endMonth = document.getElementById('endMonth').value;
+            const endDay = document.getElementById('endDay').value;
+
+            date1 = { month: parseInt(startMonth), day: parseInt(startDay) };
+            date2 = { month: parseInt(endMonth), day: parseInt(endDay) };
+
+            alert(`시작일: ${date1.month}월 ${date1.day}일, 종료일: ${date2.month}월 ${date2.day}일`);
+            showPage('page4');
+        }
+
+        function selectCompanion(type) {
+            companion = type;
+            alert('동행: ' + companion);
+        }
+
+        function goToPage5() {
+            people = parseInt(document.getElementById('peopleCount').value);
+            if (isNaN(people) || people < 1) {
+                alert('인원을 올바르게 입력해주세요.');
+                return;
+            }
+            alert(`인원: ${people}명`);
+            showPage('page5');
+        }
+
+        function showPdfOption() {
+            showPage('page6_pdf');
+        }
+
+        function startChatbot() {
+            showPage('page6_chat');
+            initChatbot();
+        }
+
+        function savePdf() {
+            alert('PDF를 저장합니다! (실제 저장 기능은 백엔드 필요)');
+        }
+
+        function initChatbot() {
+            const chatDisplay = document.getElementById('chatDisplay');
+            chatDisplay.innerHTML = '';
+            chatStep = 0;
+            askQuestion();
+        }
+
+        function askQuestion() {
+            const chatDisplay = document.getElementById('chatDisplay');
+            let botMessage = '';
+
+            if (chatStep === 0) {
+                botMessage = `${date1.month}월 ${date1.day}일부터 ${date2.month}월 ${date2.day}일까지 ${location}을(를) ${companion}과 ${people}명이서 여행하시나요?`;
+            } else if (chatStep === 1) {
+                botMessage = '어떤 곳을 꼭 가고 싶으신가요?';
+            } else if (chatStep === 2) {
+                botMessage = '어떤 분위기의 장소를 선호하나요? (예: 활동적, 휴식, 문화, 자연 등)';
+            } else {
+                botMessage = '더 궁금한 것이 있으시면 물어보세요!';
+            }
+            addMessage(botMessage, 'bot-message');
+            chatStep++;
+        }
+
+        function addMessage(text, type) {
+            const chatDisplay = document.getElementById('chatDisplay');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('chat-message', type);
+            messageDiv.textContent = text;
+            chatDisplay.appendChild(messageDiv);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+
+        document.getElementById('chatSendButton').addEventListener('click', sendMessage);
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const userText = chatInput.value.trim();
+
+            if (userText === '') return;
+
+            addMessage(userText, 'user-message');
+            chatInput.value = '';
+
+            setTimeout(() => {
+                if (chatStep <= 3) {
+                    askQuestion();
+                } else {
+                    addMessage('알겠습니다. 입력하신 정보로 여행 계획을 세우는 데 참고하겠습니다!', 'bot-message');
+                }
+            }, 500);
+        }
+    </script>
+
+</body>
+</html>
